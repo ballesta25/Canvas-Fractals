@@ -22,7 +22,7 @@ dist a b = sqrt . uncurry ((+) `on` (^2)) $ liftPair (-) a b
 
 type Angle = Double
 
--- Angle of the slope from point a to point b.  Mathemeticians coordinates: radians from the x-axis starting toward the direction of y.  In this case that means clockwise from right
+{- Angle of the slope from point a to point b.  Mathemetician's coordinates: radians from the x-axis starting toward the direction of y.  In this case that means clockwise from right-}
 angle :: Point -> Point -> Angle
 angle a b = (uncurry (flip atan2)) (liftPair (-) b a)
 
@@ -95,8 +95,8 @@ cantor (a, b) = [(a, oneThirdFromTo a b), (b, oneThirdFromTo b a)]
     where oneThirdFromTo = liftPair (\x y -> (x+x + y)/3)
 
 -- Draw several iterations of a fractal at given offset from each other
-generations :: Fractal f => f -> Int -> Point -> Canvas ()
-generations f limit offset = sequence_ 
+generations :: Fractal f => Int -> Point -> f -> Canvas ()
+generations limit offset  f = sequence_ 
             [drawLeaves n f >> translate offset | n <- [0..limit-1]] 
             >> translate (undo * fst offset, undo * snd offset)
             where undo = (-1) * fromIntegral limit -- remove the offset from later drawings
@@ -105,5 +105,5 @@ main :: IO()
 main = blankCanvas 3000 $ \context -> do 
          send context $ do 
            drawLeaves 5 $ mkFractal koch ((100,400),(1000,400))
-           generations (mkFractal cantor ((200, 500), (1200, 500))) 5 (0, 50)
+           generations 5 (0, 50) (mkFractal cantor ((200, 500), (1200, 500)))
            drawLeaves 4 $ snowflake ((1400,200),(1500,200))
