@@ -37,35 +37,25 @@ drawLine (start, end) = do
     lineTo end
     stroke()
 
-data LineFractal where
-    LineFractal :: Line -> [LineFractal] -> LineFractal
+data Fractal where
+    LineFractal :: Line -> [Fractal] -> Fractal
+    (:+) :: Fractal -> Fractal -> Fractal -- union
 
-mkFractal :: (Line -> [Line]) -> Line -> LineFractal
+mkFractal :: (Line -> [Line]) -> Line -> Fractal
 mkFractal f start = LineFractal start (map (mkFractal f) (f start))
 
+-- draw a simple approximation to the fractal (e.g. a line segment)
+approximate :: Fractal -> Canvas () 
+approximate (LineFractal l _) = drawLine l
+approximate (f :+ g) = approximate f >> approximate g
 
-class Fractal f where
-    approximate :: f -> Canvas () -- draw a simple approximation to the fractal (e.g. a line segment)
-    step :: f -> [f]
-
-instance Fractal LineFractal where
-    approximate (LineFractal l _)    = drawLine l
-    step        (LineFractal _ next) = next
-
-data UnionFractal where
-    (:+)  :: (Fractal f, Fractal g) => f -> g -> UnionFractal
-    Empty :: UnionFractal
-
-instance Fractal UnionFractal where
-    approximate (f :+ g) = approximate f >> approximate g
-    approximate Empty    = return ()
-    step        (f :+ g) = map (:+ Empty) (step f) ++
-                           map (Empty :+) (step g) -- inefficient
-    step        Empty    = []
+step :: Fractal -> [Fractal]
+step (LineFractal _ next) = next
+step (f :+ g) = step f ++ step g
 
 -- draw the approximations for the fractal a given depth (only at that depth,
 --   no previous levels are drawn)
-drawLeaves :: Fractal f => Int -> f -> Canvas ()
+drawLeaves :: Int -> Fractal -> Canvas ()
 drawLeaves 0     = approximate
 drawLeaves depth = mapM_ (drawLeaves (depth - 1)) . step
 
@@ -84,10 +74,10 @@ koch (a, b) = let r   = dist  a b
                   chain = [a,c,e,d,b]
               in zip chain (tail chain)
 
-snowflake :: Line -> UnionFractal
+snowflake :: Line -> Fractal
 snowflake (a, b) = let c = liftPair (+) a $
                            polar (dist a b) $ (angle a b) + pi/3
-                   in foldr (:+) Empty $ map (mkFractal koch) [(a, b), (b, c), (c, a)]
+                   in foldr1 (:+) $ map (mkFractal koch) [(a, b), (b, c), (c, a)]
 
 -- has the Cantor set as its limit
 cantor :: Line -> [Line]
@@ -95,7 +85,7 @@ cantor (a, b) = [(a, oneThirdFromTo a b), (b, oneThirdFromTo b a)]
     where oneThirdFromTo = liftPair (\x y -> (x+x + y)/3)
 
 -- Draw several iterations of a fractal at given offset from each other
-generations :: Fractal f => Int -> Point -> f -> Canvas ()
+generations :: Int -> Point -> Fractal -> Canvas ()
 generations limit offset  f = sequence_ 
             [drawLeaves n f >> translate offset | n <- [0..limit-1]] 
             >> translate (undo * fst offset, undo * snd offset)
